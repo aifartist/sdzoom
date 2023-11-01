@@ -1,2 +1,2 @@
 # sdzoom
-Testbed for the fastest SD pipelines
+Testbed for optimizing the fastest SD pipelines.
