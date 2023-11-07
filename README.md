@@ -17,7 +17,9 @@
 
 # Setup
 python3 -m venv `pwd`/venv
+
 source venv/bin/activate
+
 pip3 install -r requirements.txt
 
 # Running it
