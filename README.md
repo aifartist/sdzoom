@@ -6,7 +6,7 @@
 # RTSD - Real Time Stable Diffusion
 # verson 0.0.0.alpha
 #
-# Powered by LCM - https://github.com/0xbitches/sd-webui-lcm
+# Powered by LCM - https://latent-consistency-models.github.io/
 #
 # It is the seed of an idea and this is two days of coding
 # trying to learn html/javascript.  I have many ideas for
