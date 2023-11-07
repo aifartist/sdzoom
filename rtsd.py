@@ -15,7 +15,7 @@ from diffusers import DiffusionPipeline
 torch.set_grad_enabled(False)
 torch.backends.cudnn.benchmark = True
 
-pipe = DiffusionPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7", custom_pipeline="lcm_txt2img", safety_checker=None)
+pipe = DiffusionPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7", custom_pipeline="lcm_txt2img", scheduler=None, safety_checker=None)
 
 pipe.to(torch_device="cuda", torch_dtype=torch.float16)
 
