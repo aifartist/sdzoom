@@ -20,7 +20,7 @@ pipe = DiffusionPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7", custom_
 pipe.to(torch_device="cuda", torch_dtype=torch.float16)
 
 from diffusers import AutoencoderTiny
-pipe.vae = AutoencoderTiny.from_pretrained('madebyollin/taesd', torch_device='cuda:0', torch_dtype=torch.float16)
+pipe.vae = AutoencoderTiny.from_pretrained('madebyollin/taesd', torch_device='cuda', torch_dtype=torch.float16)
 pipe.vae = pipe.vae.cuda()
 
 pipe.unet.to(memory_format=torch.channels_last) # Helps on 4090 YMMV
