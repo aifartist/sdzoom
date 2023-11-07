@@ -1,4 +1,5 @@
 # sdzoom: Optimize Your Stable Diffusion Pipelines
+### Author: aifartist (Dan Wood)
 
 Welcome to sdzoom, a testbed application designed for optimizing and experimenting with various configurations to achieve the fastest Stable Diffusion (SD) pipelines.
 
