@@ -46,3 +46,4 @@ RTSD offers an interactive experience where image adjustments are reflected in r
 RTSD initializes with a fixed seed value, providing consistency that allows for better comparison of images as you tweak settings. If you wish to use a different seed, you can click the "New Seed" button to generate a new one.
 
 Enjoy experimenting with RTSD, and we welcome your feedback and ideas to enhance this tool further!
+[Screencast from 11-06-2023 10:48:28 PM.webm](https://github.com/aifartist/sdzoom/assets/116415616/940f0dd8-eba3-4295-a0d6-61def5607b9b)
