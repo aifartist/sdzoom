@@ -1,4 +1,6 @@
 # sdzoom
+# Author: aifartist (Dan Wood)
+#
 # Testbed for optimizing the fastest SD pipelines.
 
 # Application #1
@@ -38,3 +40,5 @@ The seed if fixed to a initial value when you start the app.
 This produces better consistancy to compare images as you
 adjust the sliders.  However, you can click "New seed" to
 change the seed.
+
+<a href="https://github.com/aifartist/sdzoom/rtsd.webm">RTSD</a>
