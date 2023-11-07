@@ -250,7 +250,7 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
             prompt_embeds=None,
         )
 
-        prompt_embeds = sv / 100 * pe1 + (100-sv) / 100 * pe2
+        prompt_embeds = (100-sv)/100 * pe1 + sv/100 * pe2
 
         # 4. Prepare timesteps
         self.scheduler.set_timesteps(num_inference_steps, lcm_origin_steps)
