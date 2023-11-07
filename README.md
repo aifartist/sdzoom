@@ -9,6 +9,8 @@ RTSD is an application that enables real-time interactions with LCM models. This
 
 RTSD leverages the expertise provided by Latent Consistency Models (LCM). For more information about LCM, visit their website at [Latent Consistency Models](https://latent-consistency-models.github.io/).
 
+There is a torch.compile() option that can be found in rtsd.py.  Using it on a setup with a 4090, i9-13900K and Ubuntu 22.04 I can average about 70 to 80 millisecond per image update as you twiddle the knobs.
+
 ### Setup Instructions
 
 To get started with RTSD, you will need to set up a Python virtual environment and install the necessary dependencies. Below are step-by-step instructions tailored for Linux environments. If you're on Windows, please ensure you're familiar with setting up a virtual environment (venv) on that platform.
@@ -46,3 +48,4 @@ RTSD offers an interactive experience where image adjustments are reflected in r
 RTSD initializes with a fixed seed value, providing consistency that allows for better comparison of images as you tweak settings. If you wish to use a different seed, you can click the "New Seed" button to generate a new one.
 
 Enjoy experimenting with RTSD, and we welcome your feedback and ideas to enhance this tool further!
+[Screencast from 11-06-2023 10:48:28 PM.webm](https://github.com/aifartist/sdzoom/assets/116415616/940f0dd8-eba3-4295-a0d6-61def5607b9b)
