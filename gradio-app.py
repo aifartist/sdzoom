@@ -37,7 +37,7 @@ if TORCH_COMPILE:
 
 def predict(prompt1, prompt2, merge_ratio, guidance, steps, sharpness, seed=1231231):
     torch.manual_seed(seed)
-    img = pipe(
+    results = pipe(
         prompt1=prompt1,
         prompt2=prompt2,
         sv=merge_ratio,
@@ -48,12 +48,19 @@ def predict(prompt1, prompt2, merge_ratio, guidance, steps, sharpness, seed=1231
         guidance_scale=guidance,
         lcm_origin_steps=50,
         output_type="pil",
-        return_dict=False,
+        # return_dict=False,
     )
-    return img
+    nsfw_content_detected = (
+        results.nsfw_content_detected[0]
+        if "nsfw_content_detected" in results
+        else False
+    )
+    if nsfw_content_detected:
+        raise gr.Error("NSFW content detected. Please try another prompt.")
+    return results.images[0]
 
 
-css="""
+css = """
 #container{
     margin: 0 auto;
     max-width: 80rem;
@@ -74,7 +81,8 @@ with gr.Blocks(css=css) as demo:
     RTSD leverages the expertise provided by Latent Consistency Models (LCM). For more information about LCM,
     visit their website at [Latent Consistency Models](https://latent-consistency-models.github.io/).
 
-    """, elem_id="intro"
+    """,
+            elem_id="intro",
         )
         with gr.Row():
             with gr.Column():
@@ -90,7 +98,9 @@ with gr.Blocks(css=css) as demo:
                 sharpness = gr.Slider(
                     value=1.0, minimum=0, maximum=1, step=0.001, label="Sharpness"
                 )
-                seed = gr.Slider(randomize=True, minimum=0, maximum=12013012031030, label="Seed")
+                seed = gr.Slider(
+                    randomize=True, minimum=0, maximum=12013012031030, label="Seed"
+                )
                 prompt1 = gr.Textbox(label="Prompt 1")
                 prompt2 = gr.Textbox(label="Prompt 2")
                 generate_bt = gr.Button("Generate")
