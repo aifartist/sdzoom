@@ -26,3 +26,4 @@ safetensors
 transformers
 regex
 accelerate
+gradio

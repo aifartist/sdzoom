@@ -49,6 +49,12 @@ python3 rtsd.py
 
 After starting the application, connect to it using your web browser by visiting `http://127.0.0.1:5017`.
 
+### Running the Gradio App
+
+
+```bash
+python3 gradio-app.py
+```
 ### Usage Guide
 
 RTSD offers an interactive experience where image adjustments are reflected in real-time. Here’s how to use it:
