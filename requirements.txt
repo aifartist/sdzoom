@@ -1,7 +1,13 @@
 wheel
 setuptools
 
+#--extra-index-url https://download.pytorch.org/whl/nightly/cu121
+#torch==2.2.0.dev20231107+cu121
+#nvidia-cuda-cupti-cu12==12.3.52
+#torchvision==0.17.0.dev20231107+cu121
 torch==2.1.0
+torchvision
+xformers
 diffusers
 Pillow
 typing_extensions

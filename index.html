@@ -9,7 +9,7 @@
       var nSteps = 4
       var guidance = 8.0
       var mergeRatio = 50
-      var sharpness = 1.0
+      var imgfry = 1.0
 
       function newseed() {
         newSeed = '1'
@@ -17,27 +17,46 @@
         newSeed = '0'
       }
 
+      var is_generating = false
+      var has_changed = false
+      var inputData
       function update() {
-        // Oh, how I wish I had atomic ops
-        // HACK!!!
-        if (seqno % 2 == 1)
-            return;
-        seqno += 1;     // Now odd.  If it overflows go to bed.
+        var width = 512;
+        var height = 512;
+        if (is_generating) {
+          has_changed = true
+          inputData = {
+            newSeed: newSeed,
+            width: width,
+            height: height,
+            nSteps: nSteps,
+            guidance: guidance,
+            prompt: $('#prompt').val(),
+            negative: $('#negative').val(),
+            mergeRatio: mergeRatio,
+            imgfry: imgfry,
+          }
+        } else {
+          inputData = {
+            newSeed: newSeed,
+            width: width,
+            height: height,
+            nSteps: nSteps,
+            guidance: guidance,
+            prompt: $('#prompt').val(),
+            negative: $('#negative').val(),
+            mergeRatio: mergeRatio,
+            imgfry: imgfry,
+          }
 
-        var width, height;
-        width = '512';
-        height = '512';
-        var inputData = {
-          newSeed: newSeed,
-          width: width,
-          height: height,
-          nSteps: nSteps,
-          guidance: guidance,
-          prompt: $('#prompt').val(),
-          negative: $('#negative').val(),
-          mergeRatio: mergeRatio,
-          sharpness: sharpness
-        };
+          generate()
+        }
+      }
+
+      function generate() {
+        is_generating = true;
+        has_changed = false;
+
         $.ajax({
           url: '/submit',
           type: 'POST',
@@ -61,13 +80,18 @@
               $('.imageContainer').prepend(message);
               alert(response.message)
             }
-            seqno = seqno + 1;
-            console.log("seqno now " + seqno);
+
+            is_generating = false;
+            if (has_changed) {
+              generate();
+            }
           },
           error: function() {
-            seqno = seqno + 1;
+            is_generating = false;
             alert('An error occurred during submission.');
-            console.log("seqno now " + seqno);
+            if (has_changed) {
+              generate()
+            }
           }
         });
       }
@@ -91,7 +115,6 @@
         slider = document.querySelector('#guidanceSlider');
         // Add an event listener to the slider.
         slider.addEventListener('input', function(event) {
-          console.log('Guidance slide')
           guidance = event.target.value;
           // TODO: Cache for performance
           var txt = document.getElementById('guidanceValue');
@@ -102,7 +125,6 @@
         slider = document.querySelector('#stepsSlider');
         // Add an event listener to the slider.
         slider.addEventListener('input', function(event) {
-          console.log('Steps slide')
           nSteps = event.target.value;
           // TODO: Cache for performance
           var txt = document.getElementById('stepsValue');
@@ -110,14 +132,13 @@
           update()
         });
 
-        slider = document.querySelector('#sharpnessSlider');
+        slider = document.querySelector('#imgfrySlider');
         // Add an event listener to the slider.
         slider.addEventListener('input', function(event) {
-          console.log('Sharpness slide' + event.target.value)
-          sharpness = event.target.value;
+          imgfry = event.target.value;
           // TODO: Cache for performance
-          var txt = document.getElementById('sharpnessValue');
-          txt.textContent = sharpness
+          var txt = document.getElementById('imgfryValue');
+          txt.textContent = imgfry
           update()
         });
 
@@ -147,6 +168,7 @@
         align-items: flex-start;
         background-color: lightgray;
         border: 2px solid darkgray;
+        height: 508px;
       }
 
       .sliderContainer {
@@ -212,8 +234,8 @@
           </div>
           <div class="sliderContainer">
             <br><span class="sliderLabel">Image Fry</span>
-            <span class="sliderValue" id="sharpnessValue">&nbsp;1.0</span>
-              <input type="range" class="slider" id="sharpnessSlider" min=0.25 max=4.0 value=1.0 step=0.05>
+            <span class="sliderValue" id="imgfryValue">&nbsp;1.0</span>
+              <input type="range" class="slider" id="imgfrySlider" min=0.25 max=4.0 value=1.0 step=0.05>
           </div>
           <br><br>
           <code>Prompt 1</code> <textarea id="prompt" placeholder="Tell me your fantasy!" rows="5" cols="64" maxlength="4096"></textarea><br>

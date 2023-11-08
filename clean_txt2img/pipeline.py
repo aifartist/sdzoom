@@ -162,12 +162,12 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
             )
         return image, has_nsfw_concept
 
+    #@torch.compile()
     def prepare_latents(self, batch_size, num_channels_latents, height, width, dtype, device, latents=None):
-        #print(f"{batch_size}, {num_channels_latents}, {height // self.vae_scale_factor}, {width // self.vae_scale_factor}, {latents}")
-        #print(f"init_noise_sigma = {self.scheduler.init_noise_sigma}")
         shape = (batch_size, num_channels_latents, height // self.vae_scale_factor, width // self.vae_scale_factor)
         if latents is None:
-            latents = torch.randn(shape, dtype=dtype).to(device)
+            #latents = torch.randn(shape, dtype=dtype).to(device)
+            latents = torch.randn(shape, device='cuda:0', dtype=dtype)#.to(device)
         else:
             latents = latents.to(device)
         # scale the initial noise by the standard deviation required by the scheduler
@@ -197,13 +197,65 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
         assert emb.shape == (w.shape[0], embedding_dim)
         return emb
 
+    def unetit(self, w_embedding, latents, prompt_embeds):
+        #latents = latents.to(prompt_embeds.dtype)
+        with self.progress_bar(total=4) as progress_bar:
+            #latents = latents.to(prompt_embeds.dtype)
+            ts = torch.full((1,), 999, device='cuda:0', dtype=torch.long)
+            model_pred = self.unet(
+                latents, ts, timestep_cond=w_embedding,
+                encoder_hidden_states=prompt_embeds,
+                cross_attention_kwargs=None,
+                return_dict=False,
+            )[0]
+
+            latents, denoised = self.scheduler.step(model_pred, 0, 999, latents)
+            progress_bar.update()
+
+            #latents = latents.to(prompt_embeds.dtype)
+            ts = torch.full((1,), 759, device='cuda:0', dtype=torch.long)
+            model_pred = self.unet(
+                latents, ts, timestep_cond=w_embedding,
+                encoder_hidden_states=prompt_embeds,
+                cross_attention_kwargs=None,
+                return_dict=False,
+            )[0]
+
+            latents, denoised = self.scheduler.step(model_pred, 1, 759, latents)
+            progress_bar.update()
+
+            #latents = latents.to(prompt_embeds.dtype)
+            ts = torch.full((1,), 519, device='cuda:0', dtype=torch.long)
+            model_pred = self.unet(
+                latents, ts, timestep_cond=w_embedding,
+                encoder_hidden_states=prompt_embeds,
+                cross_attention_kwargs=None,
+                return_dict=False,
+            )[0]
+
+            latents, denoised = self.scheduler.step(model_pred, 2, 519, latents)
+            progress_bar.update()
+
+            #latents = latents.to(prompt_embeds.dtype)
+            ts = torch.full((1,), 279, device='cuda:0', dtype=torch.long)
+            model_pred = self.unet(
+                latents, ts, timestep_cond=w_embedding,
+                encoder_hidden_states=prompt_embeds,
+                cross_attention_kwargs=None,
+                return_dict=False,
+            )[0]
+
+            latents, denoised = self.scheduler.step(model_pred, 3, 279, latents)
+            denoised /= 1.33
+            progress_bar.update()
+
+        return denoised
+
+
     @torch.no_grad()
     def __call__(
         self,
-        prompt1: Union[str, List[str]] = None,
-        prompt2: Union[str, List[str]] = None,
-        sv: float = .5,
-        sharpness: float = 1.,
+        prompt: Union[str, List[str]] = None,
         height: Optional[int] = 768,
         width: Optional[int] = 768,
         guidance_scale: float = 7.5,
@@ -217,38 +269,29 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
         cross_attention_kwargs: Optional[Dict[str, Any]] = None,
     ):
         # 0. Default height and width to unet
-        height = height or self.unet.config.sample_size * self.vae_scale_factor
-        width = width or self.unet.config.sample_size * self.vae_scale_factor
+        #height = height or self.unet.config.sample_size * self.vae_scale_factor
+        #width = width or self.unet.config.sample_size * self.vae_scale_factor
+        height = height or 96 * self.vae_scale_factor
+        width = width or 96 * self.vae_scale_factor
 
         # 2. Define call parameters
-        #if prompt is not None and isinstance(prompt, str):
-        #    batch_size = 1
-        #elif prompt is not None and isinstance(prompt, list):
-        #    batch_size = len(prompt)
-        #else:
-        #    batch_size = prompt_embeds.shape[0]
-
-        batch_size = 1
+        if prompt is not None and isinstance(prompt, str):
+            batch_size = 1
+        elif prompt is not None and isinstance(prompt, list):
+            batch_size = len(prompt)
+        else:
+            batch_size = prompt_embeds.shape[0]
 
         device = self._execution_device
         # do_classifier_free_guidance = guidance_scale > 0.0  # In LCM Implementation:  cfg_noise = noise_cond + cfg_scale * (noise_cond - noise_uncond) , (cfg_scale > 0.0 using CFG)
 
         # 3. Encode input prompt
-        pe1 = self._encode_prompt(
-            prompt1,
+        prompt_embeds = self._encode_prompt(
+            prompt,
             device,
             num_images_per_prompt,
             prompt_embeds=prompt_embeds,
         )
-
-        pe2 = self._encode_prompt(
-            prompt2,
-            device,
-            num_images_per_prompt,
-            prompt_embeds=None,
-        )
-
-        prompt_embeds = (100-sv)/100 * pe1 + sv/100 * pe2
 
         # 4. Prepare timesteps
         self.scheduler.set_timesteps(num_inference_steps, lcm_origin_steps)
@@ -281,6 +324,7 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
                 latents = latents.to(prompt_embeds.dtype)
 
                 # model prediction (v-prediction, eps, x)
+                #torch.compiler.cudagraph_mark_step_begin()
                 model_pred = self.unet(
                     latents,
                     ts,
@@ -299,14 +343,11 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
                 #    print('SYNC')
                 #    torch.cuda.synchronize()
                 progress_bar.update()
-        #print(f"unet time = {time.time() - tm0}")
-
-        denoised /= sharpness
 
         #denoised = denoised.to(prompt_embeds.dtype)
         if not output_type == "latent":
             image = self.vae.decode(denoised / self.vae.config.scaling_factor, return_dict=False)[0]
-            image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
+            #image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
             has_nsfw_concept = None
         else:
             image = denoised
@@ -320,9 +361,7 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
         image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
 
         if not return_dict:
-            #return (image, has_nsfw_concept)
-            print(f"image[0] isa {type(image[0])}")
-            return image[0]
+            return (image, has_nsfw_concept)
 
         return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
 
@@ -492,15 +531,16 @@ class LCMScheduler(SchedulerMixin, ConfigMixin):
         rescale_betas_zero_snr: bool = False,
     ):
         if trained_betas is not None:
-            self.betas = torch.tensor(trained_betas, dtype=torch.float32)
+            self.betas = torch.tensor(trained_betas, dtype=torch.float16)
         elif beta_schedule == "linear":
-            self.betas = torch.linspace(beta_start, beta_end, num_train_timesteps, dtype=torch.float32)
+            self.betas = torch.linspace(beta_start, beta_end, num_train_timesteps, dtype=torch.float16)
         elif beta_schedule == "scaled_linear":
             # this schedule is very specific to the latent diffusion model.
             self.betas = (
-                torch.linspace(beta_start**0.5, beta_end**0.5, num_train_timesteps, dtype=torch.float32) ** 2
+                torch.linspace(beta_start**0.5, beta_end**0.5, num_train_timesteps, dtype=torch.float16) ** 2
             )
         elif beta_schedule == "squaredcos_cap_v2":
+            print('444')
             # Glide cosine schedule
             self.betas = betas_for_alpha_bar(num_train_timesteps)
         else:
@@ -510,8 +550,27 @@ class LCMScheduler(SchedulerMixin, ConfigMixin):
         if rescale_betas_zero_snr:
             self.betas = rescale_zero_terminal_snr(self.betas)
 
+        self.betas.to(dtype=torch.float16)
         self.alphas = 1.0 - self.betas
-        self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
+        self.alphas_cumprod = torch.cumprod(self.alphas, dim=0, dtype=torch.float16)
+        self.alphas_cumprod.to(device='cuda:0', dtype=torch.float16)
+
+        #print(f"\nself.alphas_cumprod[4] dtype = {self.alphas_cumprod[4].dtype}\n")
+        #self.alphas_sqrt = []
+        #self.betas_sqrt = []
+        #print(f"self.alphas_cumprod[4] = {self.alphas_cumprod[4]}")
+        #print(f"self.alphas_cumprod[4].to(dtype=torch.float16) = {self.alphas_cumprod[4].to(dtype=torch.float16)}")
+        #print(f"self.alphas_cumprod[4] isa {type(self.alphas_cumprod[4])}")
+        #print(f"self.alphas_cumprod[4] dtype = {self.alphas_cumprod[4].dtype}")
+        #print(f"self.alphas_cumprod[4].sqrt() = {self.alphas_cumprod[4].sqrt()}")
+        #print(f"self.alphas_cumprod[4].sqrt() isa {type(self.alphas_cumprod[4].sqrt())}")
+        #print(f"self.alphas_cumprod[4].sqrt() dtype = {self.alphas_cumprod[4].sqrt().dtype}")
+        #for i in range(1000):
+        #    self.alphas_sqrt.append(self.alphas_cumprod[i].sqrt())
+        #    self.betas_sqrt.append((1 - self.alphas_cumprod[i]).sqrt())
+
+        #print(f"self.alphas_sqrt[4] dtype = {self.alphas_sqrt[4].dtype}")
+        self.noise = torch.randn([1, 4, 64, 64], device='cuda:0', dtype=torch.float16)
 
         # At every step in ddim, we are looking into the previous alphas_cumprod
         # For the final step, there is no previous alphas_cumprod because we are already at 0
@@ -610,6 +669,9 @@ class LCMScheduler(SchedulerMixin, ConfigMixin):
 
         self.timesteps = torch.from_numpy(timesteps.copy()).to(device)
 
+    #import numba
+    #@numba.jit()
+    #@torch.compile()
     def get_scalings_for_boundary_condition_discrete(self, t):
         self.sigma_data = 0.5  # Default: 0.5
 
@@ -695,6 +757,9 @@ class LCMScheduler(SchedulerMixin, ConfigMixin):
 
         # 4. Denoise model output using boundary conditions
         denoised = c_out * pred_x0 + c_skip * sample
+
+        if timeindex == len(self.timesteps) - 1: # aifartist
+            return (None, denoised)
 
         # 5. Sample z ~ N(0, I), For MultiStep Inference
         # Noise is not used for one-step sampling.

@@ -1,5 +1,6 @@
 import io, os
 import threading
+import socket
 import time
 import random
 import base64
@@ -12,8 +13,14 @@ import secrets
 import torch
 from diffusers import DiffusionPipeline
 
+doCompile = False
+
+torch.set_default_device('cuda')
 torch.set_grad_enabled(False)
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark_limit = 1
 
 pipe = DiffusionPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7", custom_pipeline="lcm_txt2img", scheduler=None, safety_checker=None)
 
@@ -25,7 +32,11 @@ pipe.vae = pipe.vae.cuda()
 
 pipe.unet.to(memory_format=torch.channels_last) # Helps on 4090 YMMV
 
-if False:
+if doCompile:
+    print('\nYou have requested torch.compile.  This will run for several')
+    print('minutes unless it finds the old compiled model.  In the later')
+    print('case it might only take about 35 seconds to be ready.')
+    print('To force a compile two warmup images will now be generated.\n')
     pipe.text_encoder = torch.compile(pipe.text_encoder, mode='max-autotune')
     pipe.tokenizer = torch.compile(pipe.tokenizer, mode='max-autotune')
 
@@ -33,10 +44,26 @@ if False:
 
     pipe.vae = torch.compile(pipe.vae, mode='max-autotune')
 
+    # Warmup to force the compile
+    with torch.inference_mode():
+        p1 = "Asian women, intricate jewlery in her hair, 8k"
+        p2 = "Tom Cruise, 8k"
+        img = pipe(prompt1=p1, prompt2=p2, sv=50,
+            sharpness=1.0,
+            width=512, height=512,
+            num_inference_steps=4,
+            guidance_scale=8.0, lcm_origin_steps=50,
+            output_type="pil", return_dict=False)
+        img = pipe(prompt1=p1, prompt2=p2, sv=50,
+            sharpness=1.0,
+            width=512, height=512,
+            num_inference_steps=4,
+            guidance_scale=8.0, lcm_origin_steps=50,
+            output_type="pil", return_dict=False)
 
 serverState = 1
 p1 = "Asian women, intricate jewlery in her hair, 8k"
-p2 = "Tom Cruise, intricate jewlery in her hair, 8k"
+p2 = "Tom Cruise, 8k"
 seed = 12321
 slider_value = 50
 
@@ -89,7 +116,7 @@ def before_post_request():
 def register():
     global seed
 
-    seed = random.randint(0, 2100000000)
+    seed = random.randint(0, 2147483647)
     torch.manual_seed(seed)
 
     response = {'success': True}
@@ -139,7 +166,6 @@ def state():
 @app.route('/submit', methods=['POST'])
 def submit():
     global seed, mergeRatio
-    print('IN: SUBMIT')
     data = request.get_json()
     print(f"data = {data}")
 
@@ -151,27 +177,28 @@ def submit():
     height = data['height']
     nSteps = int(data['nSteps'])
     guidance = float(data['guidance'])
-    sharpness = float(data['sharpness'])
+    imgfry = float(data['imgfry'])
 
     print(f"newSeed = {newSeed}")
     print(f"nSteps = {nSteps}")
-    print(f"mergeRation = {mergeRatio}")
+    print(f"mergeRatio = {mergeRatio}")
     print(f"guidance = {guidance}")
-    print(f"sharpness = {sharpness}")
+    print(f"img fry = {imgfry}")
 
     if int(newSeed) == 1:
-        seed = random.randint(0, 2100000000)
+        seed = random.randint(0, 2147483647)
 
     torch.manual_seed(seed)
 
     #try:
     tm0 = time.time()
-    img = pipe(prompt1=p1, prompt2=p2, sv=mergeRatio,
-        sharpness=sharpness,
-        width=512, height=512,
-        num_inference_steps=nSteps,
-        guidance_scale=guidance, lcm_origin_steps=50,
-        output_type="pil", return_dict=False)
+    with torch.inference_mode():
+        img = pipe(prompt1=p1, prompt2=p2, sv=mergeRatio,
+            sharpness=imgfry,
+            width=512, height=512,
+            num_inference_steps=nSteps,
+            guidance_scale=guidance, lcm_origin_steps=50,
+            output_type="pil", return_dict=False)
     print(f"time = {time.time() - tm0}")
     #except:
     #    return jsonify({ 'message': 'Generate image failed' })
@@ -181,7 +208,7 @@ def submit():
     #img.save("dwgold.jpg")
     b64img = base64.b64encode(imgBytes.getvalue()).decode('utf-8')
     response = {'image': b64img}
-    print('OUT: SUBMIT')
+
     return jsonify(response)
 
     #if b64Image:
@@ -191,5 +218,11 @@ def submit():
 
     #return jsonify(response)
 
+try:
+    server_ip = socket.gethostbyname(socket.gethostname())
+except:
+    server_ip = '127.0.0.1'
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5017)
+    print(f"Please connect a browser to http://{server_ip}:5017")
+    app.run(host=server_ip, port=5017)
