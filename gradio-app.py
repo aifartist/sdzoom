@@ -7,6 +7,13 @@ import os
 SAFETY_CHECKER = os.environ.get("SAFETY_CHECKER", None)
 TORCH_COMPILE = os.environ.get("TORCH_COMPILE", None)
 
+torch.set_default_device('cuda')
+torch.set_grad_enabled(False)
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark_limit = 0
+
 if SAFETY_CHECKER:
     pipe = DiffusionPipeline.from_pretrained(
         "SimianLuo/LCM_Dreamshaper_v7",
